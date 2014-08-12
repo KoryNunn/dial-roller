@@ -1,10 +1,10 @@
-var interact = require('interact-js'),
+var EventEmitter = require('events').EventEmitter,
+    interact = require('interact-js'),
     crel = require('crel'),
     doc = require('doc-js'),
     transformPropertyName = '-webkit-transform',
-    transformStylePropertyName = '-webkit-transform-style',
-    perspectivePropertyName = '-webkit-perspective',
-    backfacePropertyName = '-webkit-backface-visibility',
+    venfix = require('venfix'),
+    translate = require('css-translate'),
     unitr = require('unitr');
 
 interact.on('drag', document, function(interaction){
@@ -53,6 +53,9 @@ function Dial(settings){
     this.update();
     this.element.barrelDial = this;
 }
+Dial.prototype = Object.create(EventEmitter.prototype);
+Dial.prototype.constructor = Dial;
+Dial.prototype.direction = 'vertical';
 Dial.prototype.height = 100;
 Dial.prototype.width = 30;
 Dial.prototype.labelHeight = 30;
@@ -71,9 +74,7 @@ Dial.prototype.endUpdate = function(degrees){
             dial.spin(
                 dial.velocity,
                 function(){
-                    dial.trigger({
-                        type: 'spin'
-                    });
+                    dial.emit('spin');
                     if(dial.held || Math.abs(dial.velocity) <= 0.1){
                         if(!dial.held){
                             dial.settle();
@@ -115,16 +116,16 @@ Dial.prototype.spin = function(degrees, callback){
 
         dial._value = newValue;
 
-        dial.trigger('roll');
+        dial.emit('roll');
         if(oldValue != newValue){
-            dial.trigger('change');
+            dial.emit('change', dial.value());
         }
     });
 
     return this;
 };
 Dial.prototype.update = function(){
-    this.valuesElement.style[transformPropertyName] = 'rotateX(' + this._angle + 'deg)';
+    this.valuesElement.style[venfix('transform')] = 'rotateX(' + this._angle + 'deg)';
 };
 Dial.prototype.spinTo = function(angle, callback){
     var dial = this;
@@ -156,7 +157,7 @@ Dial.prototype.settle = function(){
 
     dial.spinTo(valueAngle, function(){
         dial._value = dial.values[Math.abs(valueIndex - dial.values.length) % dial.values.length];
-        dial.trigger('settle');
+        dial.emit('settle');
     });
 };
 Dial.prototype.value = function(setValue){
@@ -175,78 +176,66 @@ Dial.prototype.value = function(setValue){
 
     dial.spinTo(360 - (360 / dial.values.length * this._value));
 
-    this.trigger('change');
-    this.trigger('settle');
+    this.emit('change', dial.value());
+    this.emit('settle');
 
     return this;
 };
 
 Dial.prototype.values = [0,1,2,3,4,5,6,7,8,9];
 Dial.prototype.render = function(){
-    var valuesElement,
-        dial = this,
-        values = this.values.slice();
+    var dial = this,
+        valuesElement,
+        values = dial.values.slice();
 
-    this.element = crel('div', {'class':'dial'},
+    dial.element = crel('div', {'class':'dial'},
         valuesElement = crel('div', {'class':'values'})
     );
-    this.element.style.height = unitr(this.height);
-    this.element.style.width = unitr(this.width);
-    this.element.style.display = 'inline-block';
-    this.element.style.overflow = 'hidden';
-    this.element.style[perspectivePropertyName] = '10000';
+    dial.valuesElement = valuesElement;
 
-    this.valuesElement = valuesElement;
-    this.valuesElement.style.height = '100%';
-    this.valuesElement.style[transformStylePropertyName] = 'preserve-3d';
+    doc.ready(function(){
+        dial.element.style.height = unitr(dial.height);
+        dial.element.style.width = unitr(dial.width);
+        dial.element.style.display = 'inline-block';
+        dial.element.style.overflow = 'hidden';
+        dial.element.style[venfix('perspective')] = '10000';
+        dial.element.style.position = 'relative';
 
-    this._labels = [];
+        dial.valuesElement.style.height = '100%';
+        dial.valuesElement.style[venfix('transform-style')] = 'preserve-3d';
 
-    var valueLabel;
+        dial._labels = [];
 
-    for(var i = 0; i < values.length; i++){
-        valueLabel = crel('label', values[i].toString());
-        valueLabel.barrelValue = values[i];
-        valueLabel.style.display = 'block';
-        valueLabel.style.position = 'absolute';
-        valueLabel.style.height = unitr(this.labelHeight);
-        valueLabel.style.top = '50%';
-        valueLabel.style['margin-top'] = unitr(-(this.labelHeight / 2));
-        valueLabel.style[transformPropertyName] = 'rotateX(' + 360 / values.length * i + 'deg) translateZ(' + unitr(parseInt(this.labelHeight * this.values.length / Math.PI) / 2) + ')';
-        valueLabel.style[backfacePropertyName] = 'hidden';
+        var valueLabel;
 
-        valuesElement.appendChild(valueLabel);
-    }
+        for(var i = 0; i < values.length; i++){
+            valueLabel = crel('label', values[i].toString());
+            valueLabel.barrelValue = values[i];
+            valueLabel.style.display = 'block';
+            valueLabel.style.position = 'absolute';
+            valueLabel.style.height = unitr(dial.labelHeight);
+            valueLabel.style.top = '50%';
+            valueLabel.style['margin-top'] = unitr(-(dial.labelHeight / 2));
+            valueLabel.style[venfix('transform')] = 'rotateX(' + 360 / values.length * i + 'deg) translateZ(' + unitr(parseInt(dial.labelHeight * dial.values.length / Math.PI) / 2) + ')';
+            valueLabel.style[venfix('backface-visibility')] = 'hidden';
+
+            valuesElement.appendChild(valueLabel);
+        }
+    });
 
     interact.on('start', document, function(interaction){
-        if(!doc.closest(interaction.originalEvent.target, valuesElement)){
+        if(
+            interaction.barrelDial ||
+            !doc.closest(interaction.originalEvent.target, valuesElement)
+        ){
             return;
         }
 
         interaction.preventDefault();
-
         interaction.barrelDial = dial;
+
     });
 
-    return this;
-};
-Dial.prototype.trigger = function(event){
-    if(typeof event === 'string'){
-        event = {type:event};
-    }
-    event.target = this;
-    if(this._events[event.type]){
-        for(var i = 0; i < this._events[event.type].length; i++){
-            this._events[event.type][i](event);
-        }
-    }
-    return this;
-};
-Dial.prototype.on = function(type, callback){
-    if(!this._events[type]){
-        this._events[type] = [];
-    }
-    this._events[type].push(callback);
     return this;
 };
 

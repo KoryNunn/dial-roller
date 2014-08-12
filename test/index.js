@@ -1,7 +1,20 @@
-var DialRoller = require('../');
+var DialRoller = require('../'),
+    crel = require('crel');
 
-var dial = new DialRoller();
+var dial = new DialRoller(),
+    valueLabel = crel('label');
+
+dial.on('change', function(value){
+    valueLabel.textContent = 'value: ' + value;
+});
 
 window.onload = function(){
-    document.body.appendChild(dial.element);
+    crel(document.body,
+        dial.element,
+        valueLabel
+    );
+
+    setTimeout(function(){
+        dial.value(5);
+    },1000);
 };

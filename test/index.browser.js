@@ -1,11 +1,11 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/home/kory/dev/dial-roller/index.js":[function(require,module,exports){
-var interact = require('interact-js'),
+var EventEmitter = require('events').EventEmitter,
+    interact = require('interact-js'),
     crel = require('crel'),
     doc = require('doc-js'),
     transformPropertyName = '-webkit-transform',
-    transformStylePropertyName = '-webkit-transform-style',
-    perspectivePropertyName = '-webkit-perspective',
-    backfacePropertyName = '-webkit-backface-visibility',
+    venfix = require('venfix'),
+    translate = require('css-translate'),
     unitr = require('unitr');
 
 interact.on('drag', document, function(interaction){
@@ -54,6 +54,9 @@ function Dial(settings){
     this.update();
     this.element.barrelDial = this;
 }
+Dial.prototype = Object.create(EventEmitter.prototype);
+Dial.prototype.constructor = Dial;
+Dial.prototype.direction = 'vertical';
 Dial.prototype.height = 100;
 Dial.prototype.width = 30;
 Dial.prototype.labelHeight = 30;
@@ -72,9 +75,7 @@ Dial.prototype.endUpdate = function(degrees){
             dial.spin(
                 dial.velocity,
                 function(){
-                    dial.trigger({
-                        type: 'spin'
-                    });
+                    dial.emit('spin');
                     if(dial.held || Math.abs(dial.velocity) <= 0.1){
                         if(!dial.held){
                             dial.settle();
@@ -116,16 +117,16 @@ Dial.prototype.spin = function(degrees, callback){
 
         dial._value = newValue;
 
-        dial.trigger('roll');
+        dial.emit('roll');
         if(oldValue != newValue){
-            dial.trigger('change');
+            dial.emit('change', dial.value());
         }
     });
 
     return this;
 };
 Dial.prototype.update = function(){
-    this.valuesElement.style[transformPropertyName] = 'rotateX(' + this._angle + 'deg)';
+    this.valuesElement.style[venfix('transform')] = 'rotateX(' + this._angle + 'deg)';
 };
 Dial.prototype.spinTo = function(angle, callback){
     var dial = this;
@@ -157,7 +158,7 @@ Dial.prototype.settle = function(){
 
     dial.spinTo(valueAngle, function(){
         dial._value = dial.values[Math.abs(valueIndex - dial.values.length) % dial.values.length];
-        dial.trigger('settle');
+        dial.emit('settle');
     });
 };
 Dial.prototype.value = function(setValue){
@@ -176,83 +177,71 @@ Dial.prototype.value = function(setValue){
 
     dial.spinTo(360 - (360 / dial.values.length * this._value));
 
-    this.trigger('change');
-    this.trigger('settle');
+    this.emit('change', dial.value());
+    this.emit('settle');
 
     return this;
 };
 
 Dial.prototype.values = [0,1,2,3,4,5,6,7,8,9];
 Dial.prototype.render = function(){
-    var valuesElement,
-        dial = this,
-        values = this.values.slice();
+    var dial = this,
+        valuesElement,
+        values = dial.values.slice();
 
-    this.element = crel('div', {'class':'dial'},
+    dial.element = crel('div', {'class':'dial'},
         valuesElement = crel('div', {'class':'values'})
     );
-    this.element.style.height = unitr(this.height);
-    this.element.style.width = unitr(this.width);
-    this.element.style.display = 'inline-block';
-    this.element.style.overflow = 'hidden';
-    this.element.style[perspectivePropertyName] = '10000';
+    dial.valuesElement = valuesElement;
 
-    this.valuesElement = valuesElement;
-    this.valuesElement.style.height = '100%';
-    this.valuesElement.style[transformStylePropertyName] = 'preserve-3d';
+    doc.ready(function(){
+        dial.element.style.height = unitr(dial.height);
+        dial.element.style.width = unitr(dial.width);
+        dial.element.style.display = 'inline-block';
+        dial.element.style.overflow = 'hidden';
+        dial.element.style[venfix('perspective')] = '10000';
+        dial.element.style.position = 'relative';
 
-    this._labels = [];
+        dial.valuesElement.style.height = '100%';
+        dial.valuesElement.style[venfix('transform-style')] = 'preserve-3d';
 
-    var valueLabel;
+        dial._labels = [];
 
-    for(var i = 0; i < values.length; i++){
-        valueLabel = crel('label', values[i].toString());
-        valueLabel.barrelValue = values[i];
-        valueLabel.style.display = 'block';
-        valueLabel.style.position = 'absolute';
-        valueLabel.style.height = unitr(this.labelHeight);
-        valueLabel.style.top = '50%';
-        valueLabel.style['margin-top'] = unitr(-(this.labelHeight / 2));
-        valueLabel.style[transformPropertyName] = 'rotateX(' + 360 / values.length * i + 'deg) translateZ(' + unitr(parseInt(this.labelHeight * this.values.length / Math.PI) / 2) + ')';
-        valueLabel.style[backfacePropertyName] = 'hidden';
+        var valueLabel;
 
-        valuesElement.appendChild(valueLabel);
-    }
+        for(var i = 0; i < values.length; i++){
+            valueLabel = crel('label', values[i].toString());
+            valueLabel.barrelValue = values[i];
+            valueLabel.style.display = 'block';
+            valueLabel.style.position = 'absolute';
+            valueLabel.style.height = unitr(dial.labelHeight);
+            valueLabel.style.top = '50%';
+            valueLabel.style['margin-top'] = unitr(-(dial.labelHeight / 2));
+            valueLabel.style[venfix('transform')] = 'rotateX(' + 360 / values.length * i + 'deg) translateZ(' + unitr(parseInt(dial.labelHeight * dial.values.length / Math.PI) / 2) + ')';
+            valueLabel.style[venfix('backface-visibility')] = 'hidden';
+
+            valuesElement.appendChild(valueLabel);
+        }
+    });
 
     interact.on('start', document, function(interaction){
-        if(!doc.closest(interaction.originalEvent.target, valuesElement)){
+        if(
+            interaction.barrelDial ||
+            !doc.closest(interaction.originalEvent.target, valuesElement)
+        ){
             return;
         }
 
         interaction.preventDefault();
-
         interaction.barrelDial = dial;
+
     });
 
     return this;
 };
-Dial.prototype.trigger = function(event){
-    if(typeof event === 'string'){
-        event = {type:event};
-    }
-    event.target = this;
-    if(this._events[event.type]){
-        for(var i = 0; i < this._events[event.type].length; i++){
-            this._events[event.type][i](event);
-        }
-    }
-    return this;
-};
-Dial.prototype.on = function(type, callback){
-    if(!this._events[type]){
-        this._events[type] = [];
-    }
-    this._events[type].push(callback);
-    return this;
-};
 
 module.exports = Dial;
-},{"crel":"/home/kory/dev/dial-roller/node_modules/crel/crel.js","doc-js":"/home/kory/dev/dial-roller/node_modules/doc-js/fluent.js","interact-js":"/home/kory/dev/dial-roller/node_modules/interact-js/interact.js","unitr":"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js"}],"/home/kory/dev/dial-roller/node_modules/crel/crel.js":[function(require,module,exports){
+},{"crel":"/home/kory/dev/dial-roller/node_modules/crel/crel.js","css-translate":"/home/kory/dev/dial-roller/node_modules/css-translate/translate.js","doc-js":"/home/kory/dev/dial-roller/node_modules/doc-js/fluent.js","events":"/usr/lib/node_modules/watchify/node_modules/browserify/node_modules/events/events.js","interact-js":"/home/kory/dev/dial-roller/node_modules/interact-js/interact.js","unitr":"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js","venfix":"/home/kory/dev/dial-roller/node_modules/venfix/venfix.js"}],"/home/kory/dev/dial-roller/node_modules/crel/crel.js":[function(require,module,exports){
 //Copyright (C) 2012 Kory Nunn
 
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -384,7 +373,40 @@ module.exports = Dial;
     return crel;
 }));
 
-},{}],"/home/kory/dev/dial-roller/node_modules/doc-js/doc.js":[function(require,module,exports){
+},{}],"/home/kory/dev/dial-roller/node_modules/css-translate/translate.js":[function(require,module,exports){
+var unitr = require('unitr'),
+    types = {
+        '3d': '3d',
+        'x': 'X',
+        'y': 'Y',
+        'z': 'Z',
+        '2d': '',
+        '': ''
+    };
+
+module.exports = function(type, x, y, z){
+    if(!isNaN(type)){
+        z = y;
+        y = x;
+        x = type;
+        type = null;
+    }
+
+    type = type && type.toLowerCase() || '';
+
+    var args = [];
+
+    x != null && args.push(unitr(x));
+    y != null && args.push(unitr(y));
+    z != null && args.push(unitr(z));
+
+    return 'translate' +
+        types[type] +
+        '(' +
+        args.join(',') +
+        ')';
+}
+},{"unitr":"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js"}],"/home/kory/dev/dial-roller/node_modules/doc-js/doc.js":[function(require,module,exports){
 var doc = {
     document: typeof document !== 'undefined' ? document : null,
     setDocument: function(d){
@@ -1532,12 +1554,388 @@ function addUnit(input, unit){
 
 module.exports = addUnit;
 module.exports.parse = parse;
-},{}],"/home/kory/dev/dial-roller/test/index.js":[function(require,module,exports){
-var DialRoller = require('../');
+},{}],"/home/kory/dev/dial-roller/node_modules/venfix/venfix.js":[function(require,module,exports){
+var cache = {},
+    bodyStyle = {};
 
-var dial = new DialRoller();
+window.addEventListener('load', getBodyStyleProperties);
+function getBodyStyleProperties(){
+    var shortcuts = {},
+        items = document.defaultView.getComputedStyle(document.body);
+
+    for(var i = 0; i < items.length; i++){
+        bodyStyle[items[i]] = null;
+
+        // This is kinda dodgy but it works.
+        baseName = items[i].match(/^(\w+)-.*$/);
+        if(baseName){
+            if(shortcuts[baseName[1]]){
+                bodyStyle[baseName[1]] = null;
+            }else{
+                shortcuts[baseName[1]] = true;
+            }
+        }
+    }
+}
+
+function venfix(property, target){
+    if(!target && cache[property]){
+        return cache[property];
+    }
+
+    target = target || bodyStyle;
+
+    var props = [];
+
+    for(var key in target){
+        cache[key] = key;
+        props.push(key);
+    }
+
+    if(property in target){
+        return property;
+    }
+
+    var propertyRegex = new RegExp('^-(' + venfix.prefixes.join('|') + ')-' + property + '$', 'i');
+
+    for(var i = 0; i < props.length; i++) {
+        if(props[i].match(propertyRegex)){
+            if(target === bodyStyle){
+                cache[property] = props[i]
+            }
+            return props[i];
+        }
+    }
+}
+
+// Add extensibility
+venfix.prefixes = ['webkit', 'moz', 'ms', 'o'];
+
+module.exports = venfix;
+},{}],"/home/kory/dev/dial-roller/test/index.js":[function(require,module,exports){
+var DialRoller = require('../'),
+    crel = require('crel');
+
+var dial = new DialRoller(),
+    valueLabel = crel('label');
+
+dial.on('change', function(value){
+    valueLabel.textContent = 'value: ' + value;
+});
 
 window.onload = function(){
-    document.body.appendChild(dial.element);
+    crel(document.body,
+        dial.element,
+        valueLabel
+    );
+
+    setTimeout(function(){
+        dial.value(5);
+    },1000);
 };
-},{"../":"/home/kory/dev/dial-roller/index.js"}]},{},["/home/kory/dev/dial-roller/test/index.js"]);
+},{"../":"/home/kory/dev/dial-roller/index.js","crel":"/home/kory/dev/dial-roller/node_modules/crel/crel.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/node_modules/events/events.js":[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function EventEmitter() {
+  this._events = this._events || {};
+  this._maxListeners = this._maxListeners || undefined;
+}
+module.exports = EventEmitter;
+
+// Backwards-compat with node 0.10.x
+EventEmitter.EventEmitter = EventEmitter;
+
+EventEmitter.prototype._events = undefined;
+EventEmitter.prototype._maxListeners = undefined;
+
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
+
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!isNumber(n) || n < 0 || isNaN(n))
+    throw TypeError('n must be a positive number');
+  this._maxListeners = n;
+  return this;
+};
+
+EventEmitter.prototype.emit = function(type) {
+  var er, handler, len, args, i, listeners;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      } else {
+        throw TypeError('Uncaught, unspecified "error" event.');
+      }
+      return false;
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        len = arguments.length;
+        args = new Array(len - 1);
+        for (i = 1; i < len; i++)
+          args[i - 1] = arguments[i];
+        handler.apply(this, args);
+    }
+  } else if (isObject(handler)) {
+    len = arguments.length;
+    args = new Array(len - 1);
+    for (i = 1; i < len; i++)
+      args[i - 1] = arguments[i];
+
+    listeners = handler.slice();
+    len = listeners.length;
+    for (i = 0; i < len; i++)
+      listeners[i].apply(this, args);
+  }
+
+  return true;
+};
+
+EventEmitter.prototype.addListener = function(type, listener) {
+  var m;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events)
+    this._events = {};
+
+  // To avoid recursion in the case that type === "newListener"! Before
+  // adding it to the listeners, first emit "newListener".
+  if (this._events.newListener)
+    this.emit('newListener', type,
+              isFunction(listener.listener) ?
+              listener.listener : listener);
+
+  if (!this._events[type])
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  else if (isObject(this._events[type]))
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  else
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+
+  // Check for listener leak
+  if (isObject(this._events[type]) && !this._events[type].warned) {
+    var m;
+    if (!isUndefined(this._maxListeners)) {
+      m = this._maxListeners;
+    } else {
+      m = EventEmitter.defaultMaxListeners;
+    }
+
+    if (m && m > 0 && this._events[type].length > m) {
+      this._events[type].warned = true;
+      console.error('(node) warning: possible EventEmitter memory ' +
+                    'leak detected. %d listeners added. ' +
+                    'Use emitter.setMaxListeners() to increase limit.',
+                    this._events[type].length);
+      if (typeof console.trace === 'function') {
+        // not supported in IE 10
+        console.trace();
+      }
+    }
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  var fired = false;
+
+  function g() {
+    this.removeListener(type, g);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  g.listener = listener;
+  this.on(type, g);
+
+  return this;
+};
+
+// emits a 'removeListener' event iff the listener was removed
+EventEmitter.prototype.removeListener = function(type, listener) {
+  var list, position, length, i;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  list = this._events[type];
+  length = list.length;
+  position = -1;
+
+  if (list === listener ||
+      (isFunction(list.listener) && list.listener === listener)) {
+    delete this._events[type];
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+
+  } else if (isObject(list)) {
+    for (i = length; i-- > 0;) {
+      if (list[i] === listener ||
+          (list[i].listener && list[i].listener === listener)) {
+        position = i;
+        break;
+      }
+    }
+
+    if (position < 0)
+      return this;
+
+    if (list.length === 1) {
+      list.length = 0;
+      delete this._events[type];
+    } else {
+      list.splice(position, 1);
+    }
+
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  var key, listeners;
+
+  if (!this._events)
+    return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener) {
+    if (arguments.length === 0)
+      this._events = {};
+    else if (this._events[type])
+      delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    this._events = {};
+    return this;
+  }
+
+  listeners = this._events[type];
+
+  if (isFunction(listeners)) {
+    this.removeListener(type, listeners);
+  } else {
+    // LIFO order
+    while (listeners.length)
+      this.removeListener(type, listeners[listeners.length - 1]);
+  }
+  delete this._events[type];
+
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  var ret;
+  if (!this._events || !this._events[type])
+    ret = [];
+  else if (isFunction(this._events[type]))
+    ret = [this._events[type]];
+  else
+    ret = this._events[type].slice();
+  return ret;
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  var ret;
+  if (!emitter._events || !emitter._events[type])
+    ret = 0;
+  else if (isFunction(emitter._events[type]))
+    ret = 1;
+  else
+    ret = emitter._events[type].length;
+  return ret;
+};
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+
+},{}]},{},["/home/kory/dev/dial-roller/test/index.js"]);
