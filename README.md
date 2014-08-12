@@ -9,7 +9,9 @@ infinit rolling dial UI-component
 ## Use
 
     var DialRoller = require('dial-roller'),
-        dial = new DialRoller();
+        dial = new DialRoller({
+            values: [1,2,3,4,5]
+        });
 
 Bind to events:
 
@@ -24,5 +26,3 @@ Set it's value:
 Use the element:
 
     document.body.appendChild(dial.element);
-
-

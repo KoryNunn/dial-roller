@@ -7,20 +7,25 @@ var EventEmitter = require('events').EventEmitter,
     translate = require('css-translate'),
     unitr = require('unitr');
 
+function isVertical(direction){
+    return direction === 'vertical';
+}
+
 interact.on('drag', document, function(interaction){
     var dial = interaction.barrelDial;
 
     if(!dial || interaction.moves.length < 2){
         return;
     }
+    var vertical = isVertical(dial.direction);
 
     dial.beginUpdate();
     interaction.preventDefault();
 
     var lastMove = interaction.moves[interaction.moves.length-2],
-        verticleScroll = lastMove ? lastMove.pageY - interaction.pageY : 0,
-        dialCircumference = dial.labelHeight * dial.values.length,
-        spinRatio = verticleScroll / dialCircumference;
+        scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
+        dialCircumference = dial.itemSize * dial.values.length,
+        spinRatio = scrollDistance / dialCircumference;
         degrees = 360 * spinRatio;
 
     dial.velocity = degrees;
@@ -39,6 +44,11 @@ interact.on('end',document, function(interaction){
     interaction.barrelDial = null;
 });
 
+function rotateStyle(direction, angle){
+    var vertical = isVertical(direction);
+    return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)'
+}
+
 function Dial(settings){
     for(var key in settings){
         if(settings.hasOwnProperty(key)){
@@ -55,10 +65,8 @@ function Dial(settings){
 }
 Dial.prototype = Object.create(EventEmitter.prototype);
 Dial.prototype.constructor = Dial;
-Dial.prototype.direction = 'vertical';
-Dial.prototype.height = 100;
-Dial.prototype.width = 30;
-Dial.prototype.labelHeight = 30;
+Dial.prototype.direction = 'horizontal';
+Dial.prototype.itemSize = 30;
 Dial.prototype.beginUpdate = function(degrees){
     this._held = true;
 };
@@ -125,7 +133,11 @@ Dial.prototype.spin = function(degrees, callback){
     return this;
 };
 Dial.prototype.update = function(){
-    this.valuesElement.style[venfix('transform')] = 'rotateX(' + this._angle + 'deg)';
+    this.valuesElement.style[venfix('transform')] =
+        rotateStyle(
+            this.direction,
+            isVertical(this.direction)?this._angle:-this._angle
+        );
 };
 Dial.prototype.spinTo = function(angle, callback){
     var dial = this;
@@ -185,6 +197,7 @@ Dial.prototype.value = function(setValue){
 Dial.prototype.values = [0,1,2,3,4,5,6,7,8,9];
 Dial.prototype.render = function(){
     var dial = this,
+        vertical = isVertical(dial.direction),
         valuesElement,
         values = dial.values.slice();
 
@@ -194,8 +207,6 @@ Dial.prototype.render = function(){
     dial.valuesElement = valuesElement;
 
     doc.ready(function(){
-        dial.element.style.height = unitr(dial.height);
-        dial.element.style.width = unitr(dial.width);
         dial.element.style.display = 'inline-block';
         dial.element.style.overflow = 'hidden';
         dial.element.style[venfix('perspective')] = '10000';
@@ -209,17 +220,18 @@ Dial.prototype.render = function(){
         var valueLabel;
 
         for(var i = 0; i < values.length; i++){
-            valueLabel = crel('label', values[i].toString());
+            valueLabel = dial.renderItem(values[i]);
             valueLabel.barrelValue = values[i];
             valueLabel.style.display = 'block';
             valueLabel.style.position = 'absolute';
-            valueLabel.style.height = unitr(dial.labelHeight);
-            valueLabel.style.top = '50%';
-            valueLabel.style['margin-top'] = unitr(-(dial.labelHeight / 2));
-            valueLabel.style[venfix('transform')] = 'rotateX(' + 360 / values.length * i + 'deg) translateZ(' + unitr(parseInt(dial.labelHeight * dial.values.length / Math.PI) / 2) + ')';
+            valueLabel.style[venfix('transform')] = rotateStyle(dial.direction, 360 / values.length * i) + ' translateZ(' + unitr(parseInt(dial.itemSize * dial.values.length / Math.PI) / 2) + ')';
             valueLabel.style[venfix('backface-visibility')] = 'hidden';
 
-            valuesElement.appendChild(valueLabel);
+            if(vertical){
+                valuesElement.appendChild(valueLabel);
+            }else{
+                valuesElement.insertBefore(valueLabel);
+            }
         }
     });
 
@@ -238,5 +250,8 @@ Dial.prototype.render = function(){
 
     return this;
 };
+Dial.prototype.renderItem = function(item){
+    return crel('label', item.toString());
+}
 
 module.exports = Dial;
