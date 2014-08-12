@@ -1,0 +1,18 @@
+{
+  "name": "dial-roller",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "watchify ./test/index.js -o ./test/index.browser.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "crel": "^1.1.2",
+    "doc-js": "^1.0.0",
+    "interact-js": "^2.0.0",
+    "unitr": "^1.1.0"
+  }
+}
