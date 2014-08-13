@@ -307,7 +307,7 @@ Dial.prototype._drag = function(interaction){
     dial.velocity = degrees;
 
     dial.spin(degrees);
-
+    dial.emit('drag', interaction);
 };
 Dial.prototype.destroy = function(){
     var index = dials.indexOf(this);
