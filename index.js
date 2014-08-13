@@ -5,42 +5,34 @@ var EventEmitter = require('events').EventEmitter,
     transformPropertyName = '-webkit-transform',
     venfix = require('venfix'),
     translate = require('css-translate'),
-    unitr = require('unitr');
+    unitr = require('unitr'),
+    HORIZONTAL = 'horizontal',
+    VERTICAL = 'vertical',
+    NE = 45,
+    NW = -45,
+    SE = 135,
+    SW = -135;
+
+var dials = [];
+
+function getPlane(angle){
+    return ((angle > NE && angle < SE) || (angle < NW && angle > SW)) ? HORIZONTAL : VERTICAL;
+}
 
 function isVertical(direction){
     return direction === 'vertical';
 }
 
 interact.on('drag', document, function(interaction){
-    var dial = interaction.barrelDial;
-
-    if(!dial || interaction.moves.length < 2){
-        return;
+    for(var i = 0; i < dials.length; i++){
+        dials[i]._drag(interaction);
     }
-    var vertical = isVertical(dial.direction);
-
-    dial.beginUpdate();
-    interaction.preventDefault();
-
-    var lastMove = interaction.moves[interaction.moves.length-2],
-        scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
-        spinRatio = scrollDistance / dial.radius;
-        degrees = 360 * spinRatio;
-
-    dial.velocity = degrees;
-
-    dial.spin(degrees);
 });
 
 interact.on('end',document, function(interaction){
-    var dial = interaction.barrelDial;
-
-    if(!dial){
-        return;
+    for(var i = 0; i < dials.length; i++){
+        dials[i].endUpdate();
     }
-
-    dial.endUpdate();
-    interaction.barrelDial = null;
 });
 
 function rotateStyle(direction, angle){
@@ -60,11 +52,27 @@ function Dial(settings){
     this._angle = 0;
     this.render();
     this.element.barrelDial = this;
+    dials.push(this);
 }
 Dial.prototype = Object.create(EventEmitter.prototype);
 Dial.prototype.constructor = Dial;
 Dial.prototype.direction = 'horizontal';
-Dial.prototype.radius = 30;
+Dial.prototype._radius = 1;
+Dial.prototype.radius = function(value){
+    var dial = this;
+
+    if (arguments.length === 0) {
+        return this._radius;
+    }
+
+    if(isNaN(value)){
+        value = 1;
+    }
+
+    this._radius = Math.max(value, 1);
+
+    return this;
+};
 Dial.prototype.beginUpdate = function(degrees){
     this._held = true;
 };
@@ -131,13 +139,24 @@ Dial.prototype.spin = function(degrees, callback){
     return this;
 };
 Dial.prototype.update = function(){
+    var vertical = isVertical(this.direction);
+
     this.itemsElement.style[venfix('transform')] =
+        'translateZ(' + -this._radius + 'px) ' +
         rotateStyle(
             this.direction,
             isVertical(this.direction)?this._angle:-this._angle
         );
 
     if(this._itemsRendered){
+
+        if(this.itemsElement.children.length){
+            this.radius(
+                this.itemsElement.children[0]['client' + (vertical?'Height':'Width')] / 2 /
+                Math.tan(Math.PI / this._items.length)
+            );
+        }
+
         if(typeof this.updateItem === 'function'){
             for(var i = 0; i < this._items.length; i++){
                 this.updateItem(
@@ -149,7 +168,16 @@ Dial.prototype.update = function(){
         }
     }
 };
-Dial.prototype.updateItem = function(){};
+Dial.prototype.updateItem = function(itemElement, index){
+    var vertical = isVertical(this.direction);
+
+    itemElement.style[venfix('transform')] =
+        rotateStyle(
+            this.direction,
+            (360 / this._items.length * index - 180)
+        ) +
+        ' translateZ(' + (this._radius) + 'px)';
+};
 Dial.prototype.spinTo = function(angle, callback){
     var dial = this;
 
@@ -243,19 +271,6 @@ Dial.prototype.render = function(){
         dial.update();
     });
 
-    interact.on('start', document, function(interaction){
-        if(
-            interaction.barrelDial ||
-            !doc.closest(interaction.originalEvent.target, itemsElement)
-        ){
-            return;
-        }
-
-        interaction.preventDefault();
-        interaction.barrelDial = dial;
-
-    });
-
     return this;
 };
 Dial.prototype.renderItem = function(item){
@@ -263,28 +278,56 @@ Dial.prototype.renderItem = function(item){
 };
 Dial.prototype.renderItems = function(){
     var dial = this,
-        vertical = isVertical(dial.direction),
-        valueLabel,
+        itemElement,
         items = dial._items.slice();
 
     dial.itemsElement.innerHTML = '';
 
     for(var i = 0; i < items.length; i++){
-        valueLabel = dial.renderItem(items[i]);
-        valueLabel.barrelValue = items[i];
-        valueLabel.style.display = 'block';
-        valueLabel.style.position = 'absolute';
-        valueLabel.style[venfix('transform')] = rotateStyle(dial.direction, 360 / items.length * i) + ' translateZ(' + unitr(parseInt(dial.radius * dial.items.length / Math.PI) / 2) + ')';
-        valueLabel.style[venfix('backface-visibility')] = 'hidden';
+        itemElement = dial.renderItem(items[i]);
+        itemElement.barrelValue = items[i];
+        itemElement.style.display = 'block';
+        itemElement.style.position = 'absolute';
+        itemElement.style[venfix('backface-visibility')] = 'hidden';
 
-        if(vertical){
-            dial.itemsElement.appendChild(valueLabel);
-        }else{
-            dial.itemsElement.insertBefore(valueLabel);
-        }
+        dial.itemsElement.appendChild(itemElement);
     }
 
     dial._itemsRendered = true;
+};
+Dial.prototype._drag = function(interaction){
+    var dial = this,
+        angle = interaction.getCurrentAngle();
+
+    if(
+        interaction.moves.length < 2 ||
+        !doc.closest(interaction.lastStart.target, dial.element) ||
+        getPlane(angle) !== this.direction
+    ){
+        return;
+    }
+
+    var vertical = isVertical(dial.direction);
+
+    this.beginUpdate();
+    interaction.preventDefault();
+
+    var lastMove = interaction.moves[interaction.moves.length-2],
+        scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
+        spinRatio = scrollDistance / (dial._radius * Math.PI);
+        degrees = 360 * spinRatio;
+
+    dial.velocity = degrees;
+
+    dial.spin(degrees);
+
+};
+Dial.prototype.destroy = function(){
+    var index = dials.indexOf(this);
+
+    if(~index){
+        dials.splice(index, 1);
+    }
 };
 
 module.exports = Dial;

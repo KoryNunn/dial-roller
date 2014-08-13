@@ -3,14 +3,12 @@
         box-sizing: border-box;
     }
     .dial{
-        width:30px;
         height:500px;
         text-align: center;
         width: 100%;
         overflow: visible !important;
     }
     .dial .values{
-        width: 100%;
         text-align: center;
     }
     .dial .values label{
@@ -21,6 +19,29 @@
         left:0;
         right:0;
         border:solid 1px black;
+    }
+
+    .horiz{
+        height:200px;
+        width: 100%;
+    }
+    .horiz .values{
+        width: 100%;
+    }
+
+    .vert{
+        width:100%;
+        height: 200px;
+    }
+    .vert .values{
+        width: 100%;
+    }
+    .vert .values label{
+        height:200px;
+        width:200px;
+        margin:auto;
+        top:0;
+        bottom:0;
     }
 </style>
 <script src="index.browser.js"></script>
