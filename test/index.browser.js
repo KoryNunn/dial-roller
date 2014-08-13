@@ -6,19 +6,9 @@ var EventEmitter = require('events').EventEmitter,
     transformPropertyName = '-webkit-transform',
     venfix = require('venfix'),
     translate = require('css-translate'),
-    unitr = require('unitr'),
-    HORIZONTAL = 'horizontal',
-    VERTICAL = 'vertical',
-    NE = 45,
-    NW = -45,
-    SE = 135,
-    SW = -135;
+    unitr = require('unitr');
 
 var dials = [];
-
-function getPlane(angle){
-    return ((angle > NE && angle < SE) || (angle < NW && angle > SW)) ? HORIZONTAL : VERTICAL;
-}
 
 function isVertical(direction){
     return direction === 'vertical';
@@ -297,13 +287,11 @@ Dial.prototype.renderItems = function(){
     dial._itemsRendered = true;
 };
 Dial.prototype._drag = function(interaction){
-    var dial = this,
-        angle = interaction.getCurrentAngle();
+    var dial = this;
 
     if(
         interaction.moves.length < 2 ||
-        !doc.closest(interaction.lastStart.target, dial.element) ||
-        getPlane(angle) !== this.direction
+        !doc.closest(interaction.lastStart.target, dial.element)
     ){
         return;
     }
@@ -311,7 +299,6 @@ Dial.prototype._drag = function(interaction){
     var vertical = isVertical(dial.direction);
 
     this.beginUpdate();
-    interaction.preventDefault();
 
     var lastMove = interaction.moves[interaction.moves.length-2],
         scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
