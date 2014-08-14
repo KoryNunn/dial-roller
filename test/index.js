@@ -2,8 +2,8 @@ var DialRoller = require('../'),
     crel = require('crel');
 
 var horizDial = new DialRoller({
-        renderItem: function(item){
-            return crel('label', item.label);
+        renderItem: function(){
+            this.element = crel('label', this._data.label);
         },
         updateItem: function(element, index, value){
             DialRoller.prototype.updateItem.apply(this, arguments);
@@ -37,8 +37,8 @@ horizDial.on('change', function(value){
 
 var vertDial = new DialRoller({
         direction: 'vertical',
-        renderItem: function(item){
-            return crel('label', item.label);
+        renderItem: function(){
+            this.element = crel('label', this._data.label);
         },
         updateItem: function(element, index, value){
             DialRoller.prototype.updateItem.apply(this, arguments);
