@@ -21,6 +21,8 @@ var horizDial = new DialRoller({
     }),
     valueLabel = crel('label');
 
+horizDial.faceWidth(200);
+
 horizDial.items([
     {label:1},
     {label:2},
@@ -55,6 +57,8 @@ var vertDial = new DialRoller({
         }
     }),
     valueLabel = crel('label');
+
+vertDial.faceWidth(200);
 
 vertDial.items([
     {label:1},

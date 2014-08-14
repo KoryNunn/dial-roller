@@ -44,31 +44,24 @@ Face.prototype.render = function(){
 };
 Face.prototype.update = function(){
     var face = this;
-    laidout(this.element, function(){
-        var vertical = isVertical(face._dial.direction);
+    var vertical = isVertical(face._dial.direction);
 
-        face._dial.radius(
-            face.element['client' + (vertical?'Height':'Width')] / 2 /
-            Math.tan(Math.PI / face._dial._items.length)
-        );
+    if(
+        face._lastRadius === face._dial._radius &&
+        face._lastAngle === face._angle
+    ){
+        return;
+    }
 
-        if(
-            face._lastRadius === face._dial._radius &&
-            face._lastAngle === face._angle
-        ){
-            return;
-        }
+    face.element.style[venfix('transform')] =
+        rotateStyle(
+            face._dial.direction,
+            face._angle
+        ) +
+        ' translateZ(' + (face._dial._radius) + 'px)';
 
-        face.element.style[venfix('transform')] =
-            rotateStyle(
-                face._dial.direction,
-                face._angle
-            ) +
-            ' translateZ(' + (face._dial._radius) + 'px)';
-
-        face._lastRadius = face._dial._radius;
-        face._lastAngle = face._angle;
-    });
+    face._lastRadius = face._dial._radius;
+    face._lastAngle = face._angle;
 };
 Face.prototype._angle = 0;
 Face.prototype.angle = function(newAngle){
@@ -107,6 +100,30 @@ function Dial(settings){
 Dial.prototype = Object.create(EventEmitter.prototype);
 Dial.prototype.constructor = Dial;
 Dial.prototype.direction = 'horizontal';
+Dial.prototype._faceWidth = 1;
+Dial.prototype.faceWidth = function(value){
+    var dial = this;
+
+    if (arguments.length === 0) {
+        return this._faceWidth;
+    }
+
+    if(isNaN(value)){
+        value = 1;
+    }
+
+    var newWidth = Math.max(value, 1);
+
+    if(newWidth === this._faceWidth){
+        return this;
+    }
+
+    this._faceWidth = newWidth;
+
+    this.update();
+
+    return this;
+};
 Dial.prototype._radius = 1;
 Dial.prototype.radius = function(value){
     var dial = this;
@@ -199,6 +216,11 @@ Dial.prototype.spin = function(degrees, callback){
 Dial.prototype.update = function(){
     var vertical = isVertical(this.direction);
 
+    this.radius(
+        this._faceWidth / 2 /
+        Math.tan(Math.PI / this._items.length)
+    );
+
     this.itemsElement.style[venfix('transform')] =
         'translateZ(' + -this._radius + 'px) ' +
         rotateStyle(
@@ -285,6 +307,7 @@ Dial.prototype.items = function(setItems){
     };
 
     this.renderFaces();
+    this.update();
 
     return this;
 };
@@ -1785,6 +1808,8 @@ var horizDial = new DialRoller({
     }),
     valueLabel = crel('label');
 
+horizDial.faceWidth(200);
+
 horizDial.items([
     {label:1},
     {label:2},
@@ -1819,6 +1844,8 @@ var vertDial = new DialRoller({
         }
     }),
     valueLabel = crel('label');
+
+vertDial.faceWidth(200);
 
 vertDial.items([
     {label:1},
