@@ -10,21 +10,23 @@ var EventEmitter = require('events').EventEmitter,
 
 var dials = [];
 
+if(typeof document !== 'undefined'){
+    interact.on('drag', document, function(interaction){
+        for(var i = 0; i < dials.length; i++){
+            dials[i]._drag(interaction);
+        }
+    });
+
+    interact.on('end',document, function(interaction){
+        for(var i = 0; i < dials.length; i++){
+            dials[i].endUpdate();
+        }
+    });
+}
+
 function isVertical(direction){
     return direction === 'vertical';
 }
-
-interact.on('drag', document, function(interaction){
-    for(var i = 0; i < dials.length; i++){
-        dials[i]._drag(interaction);
-    }
-});
-
-interact.on('end',document, function(interaction){
-    for(var i = 0; i < dials.length; i++){
-        dials[i].endUpdate();
-    }
-});
 
 function rotateStyle(direction, angle){
     var vertical = isVertical(direction);
