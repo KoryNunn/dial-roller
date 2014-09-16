@@ -285,8 +285,6 @@ Dial.prototype.settle = function(){
     });
 };
 Dial.prototype.value = function(setValue){
-    var newValue = setValue || 0;
-
     if (arguments.length === 0) {
         return this._value;
     }
