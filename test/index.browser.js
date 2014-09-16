@@ -33,10 +33,14 @@ function closestIndexFrom(items, item, startIndex){
     var distance = 0,
         length = items.length;
 
-    while(distance<=length){
+    while(distance<=length/2){
         var after = (startIndex+distance)%length,
             before = (startIndex-distance)%length;
 
+
+        if(items[before] === items[after] && items[before] === item){
+            return startIndex - before > 0 ? before : after;
+        }
         if(items[after] === item){
             return after;
         }
@@ -1934,11 +1938,9 @@ var duplicatesDial = new DialRoller({
 duplicatesDial.faceWidth(200);
 var items = [
     {label:1},
-    {label:2},
-    {label:3},
-    {label:4}
+    {label:2}
 ];
-duplicatesDial.items(items.concat(items));
+duplicatesDial.items(items.concat(items).concat(items));
 
 duplicatesDial.element.className += ' horiz';
 

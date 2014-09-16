@@ -99,11 +99,9 @@ var duplicatesDial = new DialRoller({
 duplicatesDial.faceWidth(200);
 var items = [
     {label:1},
-    {label:2},
-    {label:3},
-    {label:4}
+    {label:2}
 ];
-duplicatesDial.items(items.concat(items));
+duplicatesDial.items(items.concat(items).concat(items));
 
 duplicatesDial.element.className += ' horiz';
 

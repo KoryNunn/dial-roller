@@ -32,10 +32,14 @@ function closestIndexFrom(items, item, startIndex){
     var distance = 0,
         length = items.length;
 
-    while(distance<=length){
+    while(distance<=length/2){
         var after = (startIndex+distance)%length,
             before = (startIndex-distance)%length;
 
+
+        if(items[before] === items[after] && items[before] === item){
+            return startIndex - before > 0 ? before : after;
+        }
         if(items[after] === item){
             return after;
         }
