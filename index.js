@@ -284,16 +284,16 @@ Dial.prototype.settle = function(){
         dial.emit('settle');
     });
 };
-Dial.prototype.value = function(setValue){
+Dial.prototype.value = function(value){
     if (arguments.length === 0) {
         return this._value;
     }
 
-    if(newValue === this._value){
+    if(value === this._value){
         return;
     }
 
-    this.spinTo(360 - (360 / this._items.length * this._items.indexOf(newValue)));
+    this.spinTo(360 - (360 / this._items.length * this._items.indexOf(value)));
 
     this.emit('change', this._value);
     this.emit('settle');
