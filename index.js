@@ -28,6 +28,10 @@ function isVertical(direction){
     return direction === 'vertical';
 }
 
+function boundAngle(angle){
+    return angle % 360;
+}
+
 function rotateStyle(direction, angle){
     var vertical = isVertical(direction);
     return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)'
@@ -186,30 +190,33 @@ Dial.prototype.endUpdate = function(degrees){
 Dial.prototype.decelerate = function(){
     this.velocity*=0.9;
 };
+Dial.prototype._spin = function(degrees){
+
+    this._angle = boundAngle(this._angle + degrees);
+
+    this.update();
+
+    var value = this._items.length / 360 * this._angle;
+        valueIndex = Math.round(value),
+        valueAngle = 360 / this._items.length * valueIndex,
+        oldValue = this._value;
+        newValue = this._items[Math.abs(valueIndex - this._items.length) % this._items.length];
+
+    this._value = newValue;
+
+    this.emit('roll');
+    if(oldValue != newValue){
+        this.emit('change', this.value());
+    }
+};
 Dial.prototype.spin = function(degrees, callback){
+    degrees = boundAngle(degrees);
 
     var dial = this;
 
     window.requestAnimationFrame(function(){
-
-        dial._angle = (360 + dial._angle + degrees) % 360;
-
-        dial.update();
-
+        dial._spin(degrees);
         callback && callback();
-
-    var value = dial._items.length / 360 * dial._angle;
-        valueIndex = Math.round(value),
-        valueAngle = 360 / dial._items.length * valueIndex,
-        oldValue = dial._value;
-        newValue = dial._items[Math.abs(valueIndex - dial._items.length) % dial._items.length];
-
-        dial._value = newValue;
-
-        dial.emit('roll');
-        if(oldValue != newValue){
-            dial.emit('change', dial.value());
-        }
     });
 
     return this;
@@ -237,21 +244,31 @@ Dial.prototype.update = function(){
 Dial.prototype.spinTo = function(angle, callback){
     var dial = this;
 
-    var settleFn = function(){
-        if(dial._held){
-            return;
-        }
+    this._targetAngle = boundAngle(angle);
 
-        dial.spin((angle - dial._angle) * 0.2, function(){
-            if(Math.abs(angle - dial._angle) > 0.1){
-                settleFn();
-            }else{
-                dial._angle = angle;
-                dial.update();
-                callback && callback();
-            }
-        });
+    if(this._spinning){
+        return;
     }
+    this._spinning = true;
+
+    var dial = this,
+        settleFn = function(){
+            if(dial._held){
+                dial._spinning = false;
+                return;
+            }
+
+            dial.spin((dial._targetAngle - dial._angle) * 0.2, function(){
+                if(Math.abs(dial._targetAngle - dial._angle) > 0.1){
+                    settleFn();
+                }else{
+                    dial._angle = dial._targetAngle;
+                    dial.update();
+                    callback && callback();
+                    dial._spinning = false;
+                }
+            });
+        }
 
     settleFn();
 };
@@ -278,9 +295,7 @@ Dial.prototype.value = function(setValue){
         return;
     }
 
-    this._value = newValue;
-
-    this.spinTo(360 - (360 / this._items.length * this._items.indexOf(this._value)));
+    this.spinTo(360 - (360 / this._items.length * this._items.indexOf(newValue)));
 
     this.emit('change', this._value);
     this.emit('settle');
@@ -309,6 +324,14 @@ Dial.prototype.items = function(setItems){
 
     this.renderFaces();
     this.update();
+
+    var currentValueIndex = this._items.indexOf(this._value);
+        
+    if(currentValueIndex>=0){
+        this.value(this._items[currentValueIndex]);
+    }else{
+        this.value(this._items[0]);
+    }
 
     return this;
 };

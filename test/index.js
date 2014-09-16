@@ -79,4 +79,17 @@ window.onload = function(){
         vertDial.element,
         valueLabel
     );
+
+    setTimeout(function(){
+        vertDial.value(vertDial.items()[3]);
+    },2000);
+    setTimeout(function(){
+        vertDial.value(vertDial.items()[2]);
+    },2200);
+    setTimeout(function(){
+        vertDial.value(vertDial.items()[0]);
+    },2400);
+    setTimeout(function(){
+        vertDial.value(vertDial.items()[1]);
+    },2600);
 };
