@@ -25,6 +25,30 @@ if(typeof document !== 'undefined'){
     });
 }
 
+function closestIndexFrom(items, item, startIndex){
+    if(isNaN(startIndex)){
+        startIndex = 0;
+    }
+
+    var distance = 0,
+        length = items.length;
+
+    while(distance<=length){
+        var after = (startIndex+distance)%length,
+            before = (startIndex-distance)%length;
+
+        if(items[after] === item){
+            return after;
+        }
+        if(items[before] === item){
+            return before;
+        }
+        distance++;
+    }
+
+    return -1;
+}
+
 function isVertical(direction){
     return direction === 'vertical';
 }
@@ -197,16 +221,14 @@ Dial.prototype._spin = function(degrees){
 
     this.update();
 
-    var value = this._items.length / 360 * this._angle;
-        valueIndex = Math.round(value),
-        valueAngle = 360 / this._items.length * valueIndex,
+    var index = (this._items.length + Math.round(this._items.length / 360 * this._angle)) % this._items.length,
         oldValue = this._value;
-        newValue = this._items[Math.abs(valueIndex - this._items.length) % this._items.length];
 
-    this._value = newValue;
+    this._index = index;
+    this._value = this._items[index];
 
     this.emit('roll');
-    if(oldValue != newValue){
+    if(oldValue != this._value){
         this.emit('change', this.value());
     }
 };
@@ -281,7 +303,8 @@ Dial.prototype.settle = function(){
         valueAngle = 360 / dial._items.length * valueIndex || 0;
 
     dial.spinTo(valueAngle, function(){
-        dial._value = dial._items[Math.abs(valueIndex - dial._items.length) % dial._items.length];
+        dial._index = Math.abs(valueIndex - dial._items.length) % dial._items.length;
+        dial._value = dial._items[dial._index];
         dial.emit('settle');
     });
 };
@@ -294,14 +317,16 @@ Dial.prototype.value = function(value){
         return;
     }
 
-    this.spinTo(360 - (360 / this._items.length * this._items.indexOf(value)));
+    this._index = closestIndexFrom(this._items, value, this._index);
+    this._value = value;
+    this.spinTo(boundAngle(360 / this._items.length * this._index));
 
     this.emit('change', this._value);
     this.emit('settle');
 
     return this;
 };
-Dial.prototype._items = [0,1,2,3,4,5,6,7,8,9];
+Dial.prototype._items = [];
 Dial.prototype.items = function(setItems){
     var dial = this;
 
@@ -1883,11 +1908,52 @@ vertDial.on('change', function(value){
     valueLabel.textContent = 'value: ' + value.label;
 });
 
+
+
+var duplicatesDial = new DialRoller({
+        direction: 'horizontal',
+        renderItem: function(){
+            this.element = crel('label', this._data.label);
+        },
+        updateItem: function(element, index, value){
+            DialRoller.prototype.updateItem.apply(this, arguments);
+            var itemAnlge = 360 / this.items().length * index,
+                angle = this._angle;
+
+            var a = itemAnlge - angle;
+            a += (a>180) ? -360 : (a<-180) ? 360 : 0;
+
+            element.style.backgroundColor = 'rgba(100,100,255,'+Math.abs(a/90)/ 4+')';
+        },
+        decelerate: function(){
+            this.velocity*=0.7;
+        }
+    }),
+    valueLabel = crel('label');
+
+duplicatesDial.faceWidth(200);
+var items = [
+    {label:1},
+    {label:2},
+    {label:3},
+    {label:4}
+];
+duplicatesDial.items(items.concat(items));
+
+duplicatesDial.element.className += ' horiz';
+
+duplicatesDial.on('change', function(value){
+    valueLabel.textContent = 'value: ' + value.label;
+});
+
+window.dups = duplicatesDial;
+
 window.onload = function(){
     crel(document.body,
         horizDial.element,
         vertDial.element,
-        valueLabel
+        valueLabel,
+        duplicatesDial.element
     );
 
     setTimeout(function(){
