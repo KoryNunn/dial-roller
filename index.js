@@ -231,7 +231,7 @@ Dial.prototype._spin = function(degrees){
     this._value = this._items[index];
 
     this.emit('roll');
-    if(oldValue != this._value){
+    if(oldValue != this._value && this._held){
         this.emit('change', this.value());
     }
 };
@@ -309,6 +309,7 @@ Dial.prototype.settle = function(){
         dial._index = Math.abs(valueIndex - dial._items.length) % dial._items.length;
         dial._value = dial._items[dial._index];
         dial.emit('settle');
+        dial.emit('change', dial.value());
     });
 };
 Dial.prototype.value = function(value){
@@ -353,7 +354,7 @@ Dial.prototype.items = function(setItems){
     this.update();
 
     var currentValueIndex = this._items.indexOf(this._value);
-        
+
     if(currentValueIndex>=0){
         this.value(this._items[currentValueIndex]);
     }else{
