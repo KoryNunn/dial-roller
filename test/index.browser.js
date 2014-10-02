@@ -232,7 +232,7 @@ Dial.prototype._spin = function(degrees){
     this._value = this._items[index];
 
     this.emit('roll');
-    if(oldValue != this._value){
+    if(oldValue != this._value && this._held){
         this.emit('change', this.value());
     }
 };
@@ -310,6 +310,7 @@ Dial.prototype.settle = function(){
         dial._index = Math.abs(valueIndex - dial._items.length) % dial._items.length;
         dial._value = dial._items[dial._index];
         dial.emit('settle');
+        dial.emit('change', dial.value());
     });
 };
 Dial.prototype.value = function(value){
@@ -354,7 +355,7 @@ Dial.prototype.items = function(setItems){
     this.update();
 
     var currentValueIndex = this._items.indexOf(this._value);
-        
+
     if(currentValueIndex>=0){
         this.value(this._items[currentValueIndex]);
     }else{
@@ -482,27 +483,30 @@ module.exports = Dial;
         root.crel = factory();
     }
 }(this, function () {
-    // based on http://stackoverflow.com/questions/384286/javascript-isdom-how-do-you-check-if-a-javascript-object-is-a-dom-object
-    var isNode = typeof Node === 'function'
-        ? function (object) { return object instanceof Node; }
-        : function (object) {
-            return object
-                && typeof object === 'object'
-                && typeof object.nodeType === 'number'
-                && typeof object.nodeName === 'string';
+    var fn = 'function',
+        isElement = typeof Element === fn ? function (object) {
+            return object instanceof Element;
+        } :
+        // in IE <= 8 Element is an object, obviously..
+        function(object){
+            return object &&
+                (typeof object==="object") &&
+                (object.nodeType===1) &&
+                (typeof object.ownerDocument ==="object");
+        },
+        isArray = function(a){
+            return a instanceof Array;
+        },
+        appendChild = function(element, child) {
+          if(!isElement(child)){
+              child = document.createTextNode(child);
+          }
+          element.appendChild(child);
         };
-    var isArray = function(a){ return a instanceof Array; };
-    var appendChild = function(element, child) {
-      if(!isNode(child)){
-          child = document.createTextNode(child);
-      }
-      element.appendChild(child);
-    };
 
 
     function crel(){
-        var document = window.document,
-            args = arguments, //Note: assigned to a variable to assist compilers. Saves about 40 bytes in closure compiler. Has negligable effect on performance.
+        var args = arguments, //Note: assigned to a variable to assist compilers. Saves about 40 bytes in closure compiler. Has negligable effect on performance.
             element = args[0],
             child,
             settings = args[1],
@@ -510,13 +514,13 @@ module.exports = Dial;
             argumentsLength = args.length,
             attributeMap = crel.attrMap;
 
-        element = isNode(element) ? element : document.createElement(element);
+        element = crel.isElement(element) ? element : document.createElement(element);
         // shortcut
         if(argumentsLength === 1){
             return element;
         }
 
-        if(typeof settings !== 'object' || isNode(settings) || isArray(settings)) {
+        if(typeof settings !== 'object' || crel.isElement(settings) || isArray(settings)) {
             --childIndex;
             settings = null;
         }
@@ -547,7 +551,7 @@ module.exports = Dial;
                 element.setAttribute(key, settings[key]);
             }else{
                 var attr = crel.attrMap[key];
-                if(typeof attr === 'function'){
+                if(typeof attr === fn){
                     attr(element, settings[key]);
                 }else{
                     element.setAttribute(attr, settings[key]);
@@ -563,7 +567,7 @@ module.exports = Dial;
     crel['attrMap'] = {};
 
     // String referenced so that compilers maintain the property name.
-    crel["isNode"] = isNode;
+    crel["isElement"] = isElement;
 
     return crel;
 }));
