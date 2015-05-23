@@ -17,5 +17,8 @@
     "laidout": "^1.0.0",
     "unitr": "^1.1.0",
     "venfix": "^1.1.2"
+  },
+  "devDependencies": {
+    "tape": "^4.0.0"
   }
 }

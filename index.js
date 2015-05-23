@@ -6,6 +6,7 @@ var EventEmitter = require('events').EventEmitter,
     venfix = require('venfix'),
     translate = require('css-translate'),
     laidout = require('laidout'),
+    closestIndexFrom = require('./closestIndexFrom'),
     unitr = require('unitr');
 
 var dials = [];
@@ -24,40 +25,12 @@ if(typeof document !== 'undefined'){
     });
 }
 
-function closestIndexFrom(items, item, startIndex){
-    if(isNaN(startIndex)){
-        startIndex = 0;
-    }
-
-    var distance = 0,
-        length = items.length;
-
-    while(distance<=length/2){
-        var after = (startIndex+distance)%length,
-            before = (startIndex-distance)%length;
-
-
-        if(items[before] === items[after] && items[before] === item){
-            return startIndex - before > 0 ? before : after;
-        }
-        if(items[after] === item){
-            return after;
-        }
-        if(items[before] === item){
-            return before;
-        }
-        distance++;
-    }
-
-    return -1;
-}
-
 function isVertical(direction){
     return direction === 'vertical';
 }
 
 function boundAngle(angle){
-    return angle % 360;
+    return (360 + angle) % 360;
 }
 
 function rotateStyle(direction, angle){
@@ -224,7 +197,8 @@ Dial.prototype._spin = function(degrees){
 
     this.update();
 
-    var index = (this._items.length + Math.round(this._items.length / 360 * this._angle)) % this._items.length,
+    var valueIndex = (this._items.length + Math.round(this._items.length / 360 * this._angle)) % this._items.length,
+        index = Math.abs(valueIndex - this._items.length) % this._items.length,
         oldValue = this._value;
 
     this._index = index;
@@ -236,8 +210,6 @@ Dial.prototype._spin = function(degrees){
     }
 };
 Dial.prototype.spin = function(degrees, callback){
-    degrees = boundAngle(degrees);
-
     var dial = this;
 
     window.requestAnimationFrame(function(){
@@ -284,7 +256,13 @@ Dial.prototype.spinTo = function(angle, callback){
                 return;
             }
 
-            dial.spin((dial._targetAngle - dial._angle) * 0.2, function(){
+            var spinBy = dial._targetAngle - dial._angle;
+
+            if(spinBy > 180){
+                spinBy = spinBy - 360;
+            }
+
+            dial.spin(spinBy * 0.2, function(){
                 if(Math.abs(dial._targetAngle - dial._angle) > 0.1){
                     settleFn();
                 }else{
@@ -323,7 +301,7 @@ Dial.prototype.value = function(value){
 
     this._index = closestIndexFrom(this._items, value, this._index);
     this._value = value;
-    this.spinTo(boundAngle(360 / this._items.length * this._index));
+    this.spinTo(360 - boundAngle(360 / this._items.length * this._index));
 
     this.emit('change', this._value);
     this.emit('settle');
@@ -383,7 +361,6 @@ Dial.prototype.render = function(){
 
         dial.renderFaces();
         dial.update();
-        dial.settle();
     });
 
     return this;
