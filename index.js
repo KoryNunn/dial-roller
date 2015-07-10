@@ -35,7 +35,7 @@ function boundAngle(angle){
 
 function rotateStyle(direction, angle){
     var vertical = isVertical(direction);
-    return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)'
+    return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)';
 }
 
 function Face(dial, data){
@@ -249,37 +249,42 @@ Dial.prototype.spinTo = function(angle, callback){
     }
     this._spinning = true;
 
-    var dial = this,
-        settleFn = function(){
-            if(dial._held){
-                dial._spinning = false;
-                return;
-            }
-
-            var spinBy = dial._targetAngle - dial._angle;
-
-            if(spinBy > 180){
-                spinBy = spinBy - 360;
-            }
-
-            dial.spin(spinBy * 0.2, function(){
-                if(Math.abs(dial._targetAngle - dial._angle) > 0.1){
-                    settleFn();
-                }else{
-                    dial._angle = dial._targetAngle;
-                    dial.update();
-                    callback && callback();
-                    dial._spinning = false;
-                }
-            });
+    var settleFn = function(){
+        if(dial._held){
+            dial._spinning = false;
+            return;
         }
+
+        var singleElementAngle = 360 / dial.items().length;
+
+        if(dial._targetAngle === singleElementAngle && dial._angle > 360 - singleElementAngle) {
+            dial._angle = 0;
+        }
+
+        var spinBy = dial._targetAngle === 0 ? 360 - dial._angle : dial._targetAngle - dial._angle;
+
+        if(spinBy > 180){
+            spinBy = spinBy - 360;
+        }
+
+        dial.spin(spinBy * 0.2, function(){
+            if(Math.abs(spinBy) > 0.1){
+                settleFn();
+            }else{
+                dial._angle = dial._targetAngle;
+                dial.update();
+                callback && callback();
+                dial._spinning = false;
+            }
+        });
+    };
 
     settleFn();
 };
 Dial.prototype.settle = function(){
     var dial = this;
 
-    var value = dial._items.length / 360 * dial._angle;
+    var value = dial._items.length / 360 * dial._angle,
         valueIndex = Math.round(value),
         valueAngle = 360 / dial._items.length * valueIndex || 0;
 
@@ -306,6 +311,7 @@ Dial.prototype.value = function(value){
     this.emit('change', this._value);
     this.emit('settle');
 
+
     return this;
 };
 Dial.prototype._items = [];
@@ -326,7 +332,7 @@ Dial.prototype.items = function(setItems){
         var newFace = new Face(this, this._items[i]);
         newFace.render = this.renderItem;
         this._faces.push(newFace);
-    };
+    }
 
     this.renderFaces();
     this.update();
