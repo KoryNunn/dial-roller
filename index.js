@@ -2,12 +2,10 @@ var EventEmitter = require('events').EventEmitter,
     interact = require('interact-js'),
     crel = require('crel'),
     doc = require('doc-js'),
-    transformPropertyName = '-webkit-transform',
     venfix = require('venfix'),
     translate = require('css-translate'),
     laidout = require('laidout'),
-    closestIndexFrom = require('./closestIndexFrom'),
-    unitr = require('unitr');
+    closestIndexFrom = require('./closestIndexFrom');
 
 var dials = [];
 
@@ -49,8 +47,8 @@ Face.prototype.render = function(){
     element.style[venfix('backface-visibility')] = 'hidden';
 };
 Face.prototype.update = function(){
-    var face = this;
-    var vertical = isVertical(face._dial.direction);
+    var face = this,
+        vertical = isVertical(face._dial.direction);
 
     if(
         face._lastRadius === face._dial._radius &&
@@ -64,15 +62,13 @@ Face.prototype.update = function(){
             face._dial.direction,
             face._angle
         ) +
-        ' translateZ(' + (face._dial._radius) + 'px)';
+        translate('Z', (face._dial._radius) + 'px');
 
     face._lastRadius = face._dial._radius;
     face._lastAngle = face._angle;
 };
 Face.prototype._angle = 0;
 Face.prototype.angle = function(newAngle){
-    var face = this;
-
     if (arguments.length === 0) {
         return this._angle;
     }
@@ -108,8 +104,6 @@ Dial.prototype.constructor = Dial;
 Dial.prototype.direction = 'horizontal';
 Dial.prototype._faceWidth = 1;
 Dial.prototype.faceWidth = function(value){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._faceWidth;
     }
@@ -132,8 +126,6 @@ Dial.prototype.faceWidth = function(value){
 };
 Dial.prototype._radius = 1;
 Dial.prototype.radius = function(value){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._radius;
     }
@@ -228,10 +220,10 @@ Dial.prototype.update = function(){
     );
 
     this.itemsElement.style[venfix('transform')] =
-        'translateZ(' + -this._radius + 'px) ' +
+        translate('Z', (-this._radius) + 'px') +
         rotateStyle(
             this.direction,
-            isVertical(this.direction)?this._angle:-this._angle
+            vertical ? this._angle:-this._angle
         );
 
     for(var i = 0; i < this._faces.length; i++){
@@ -295,6 +287,25 @@ Dial.prototype.settle = function(){
         dial.emit('change', dial.value());
     });
 };
+Dial.prototype.index = function(index) {
+    if(arguments.length === 0) {
+        return this._index;
+    }
+
+    index = parseInt(index);
+
+    if(isNaN(index)) {
+        return;
+    }
+
+    this._index = index;
+    this.spinTo(360 - boundAngle(360 / this._items.length * this._index));
+
+    this.emit('change', this._value);
+    this.emit('settle');
+
+    return this;
+};
 Dial.prototype.value = function(value){
     if (arguments.length === 0) {
         return this._value;
@@ -311,13 +322,10 @@ Dial.prototype.value = function(value){
     this.emit('change', this._value);
     this.emit('settle');
 
-
     return this;
 };
 Dial.prototype._items = [];
 Dial.prototype.items = function(setItems){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._items;
     }
@@ -376,7 +384,6 @@ Dial.prototype.renderItem = function(item){
 };
 Dial.prototype.renderFaces = function(){
     var dial = this,
-        itemElement,
         sliceAngle = (360 / this._items.length);
 
     for(var i = 0; i < this._faces.length; i++){
@@ -391,6 +398,7 @@ Dial.prototype._drag = function(interaction){
     var dial = this;
 
     if(
+        !this._enabled ||
         !doc.closest(interaction.lastStart.target, dial.element)
     ){
         return;
@@ -400,9 +408,10 @@ Dial.prototype._drag = function(interaction){
 
     this.beginUpdate();
 
+
     var lastMove = interaction.moves[interaction.moves.length-2] || interaction.lastStart,
         scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
-        spinRatio = scrollDistance / (dial._radius * Math.PI * 2);
+        spinRatio = scrollDistance / (dial._radius * Math.PI * 2),
         degrees = 360 * spinRatio;
 
     dial.velocity = degrees;
@@ -410,12 +419,22 @@ Dial.prototype._drag = function(interaction){
     dial.spin(degrees);
     dial.emit('drag', interaction);
 };
-Dial.prototype.destroy = function(){
+Dial.prototype.destroy = function() {
     var index = dials.indexOf(this);
 
     if(~index){
         dials.splice(index, 1);
     }
+};
+Dial.prototype._enabled = true;
+Dial.prototype.enabled = function(value) {
+    if(!arguments.length){
+        return this._enabled;
+    }
+
+    this._enabled = !!value;
+
+    return this;
 };
 
 module.exports = Dial;
