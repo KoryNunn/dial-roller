@@ -3,6 +3,7 @@ var EventEmitter = require('events').EventEmitter,
     crel = require('crel'),
     doc = require('doc-js'),
     venfix = require('venfix'),
+    translate = require('css-translate'),
     laidout = require('laidout'),
     closestIndexFrom = require('./closestIndexFrom');
 
@@ -61,7 +62,7 @@ Face.prototype.update = function(){
             face._dial.direction,
             face._angle
         ) +
-        ' translateZ(' + (face._dial._radius) + 'px)';
+        translate('Z', (face._dial._radius) + 'px');
 
     face._lastRadius = face._dial._radius;
     face._lastAngle = face._angle;
@@ -219,7 +220,7 @@ Dial.prototype.update = function(){
     );
 
     this.itemsElement.style[venfix('transform')] =
-        'translateZ(' + -this._radius + 'px) ' +
+        translate('Z', (-this._radius) + 'px') +
         rotateStyle(
             this.direction,
             vertical ? this._angle:-this._angle
@@ -287,11 +288,13 @@ Dial.prototype.settle = function(){
     });
 };
 Dial.prototype.index = function(index) {
-    if(!index) {
+    if(arguments.length === 0) {
         return this._index;
     }
 
-    if(typeof index !== 'number') {
+    index = parseInt(index);
+
+    if(isNaN(index)) {
         return;
     }
 
@@ -395,8 +398,8 @@ Dial.prototype._drag = function(interaction){
     var dial = this;
 
     if(
-        !doc.closest(interaction.lastStart.target, dial.element) ||
-        !this._dragEnabled
+        !this._enabled ||
+        !doc.closest(interaction.lastStart.target, dial.element)
     ){
         return;
     }
@@ -423,13 +426,13 @@ Dial.prototype.destroy = function() {
         dials.splice(index, 1);
     }
 };
-Dial.prototype._dragEnabled = true;
-Dial.prototype.dragEnabled = function(value) {
+Dial.prototype._enabled = true;
+Dial.prototype.enabled = function(value) {
     if(!arguments.length){
-        return this._dragEnabled;
+        return this._enabled;
     }
 
-    this._dragEnabled = !!value;
+    this._enabled = !!value;
 
     return this;
 };

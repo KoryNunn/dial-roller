@@ -1,13 +1,40 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/home/kory/dev/dial-roller/index.js":[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+module.exports = function closestIndexFrom(items, item, startIndex){
+    if(isNaN(startIndex)){
+        startIndex = 0;
+    }
+
+    var distance = 0,
+        length = items.length;
+
+    while(distance<=length/2){
+        var after = (startIndex+distance)%length,
+            before = (startIndex-distance + length)%length;
+
+
+        if(items[before] === items[after] && items[before] === item){
+            return startIndex - before > 0 ? before : after;
+        }
+        if(items[after] === item){
+            return after;
+        }
+        if(items[before] === item){
+            return before;
+        }
+        distance++;
+    }
+
+    return -1;
+};
+},{}],2:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter,
     interact = require('interact-js'),
     crel = require('crel'),
     doc = require('doc-js'),
-    transformPropertyName = '-webkit-transform',
     venfix = require('venfix'),
     translate = require('css-translate'),
     laidout = require('laidout'),
-    unitr = require('unitr');
+    closestIndexFrom = require('./closestIndexFrom');
 
 var dials = [];
 
@@ -25,45 +52,17 @@ if(typeof document !== 'undefined'){
     });
 }
 
-function closestIndexFrom(items, item, startIndex){
-    if(isNaN(startIndex)){
-        startIndex = 0;
-    }
-
-    var distance = 0,
-        length = items.length;
-
-    while(distance<=length/2){
-        var after = (startIndex+distance)%length,
-            before = (startIndex-distance)%length;
-
-
-        if(items[before] === items[after] && items[before] === item){
-            return startIndex - before > 0 ? before : after;
-        }
-        if(items[after] === item){
-            return after;
-        }
-        if(items[before] === item){
-            return before;
-        }
-        distance++;
-    }
-
-    return -1;
-}
-
 function isVertical(direction){
     return direction === 'vertical';
 }
 
 function boundAngle(angle){
-    return angle % 360;
+    return (360 + angle) % 360;
 }
 
 function rotateStyle(direction, angle){
     var vertical = isVertical(direction);
-    return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)'
+    return 'rotate' + (vertical?'X':'Y') + '(' + angle + 'deg)';
 }
 
 function Face(dial, data){
@@ -77,8 +76,8 @@ Face.prototype.render = function(){
     element.style[venfix('backface-visibility')] = 'hidden';
 };
 Face.prototype.update = function(){
-    var face = this;
-    var vertical = isVertical(face._dial.direction);
+    var face = this,
+        vertical = isVertical(face._dial.direction);
 
     if(
         face._lastRadius === face._dial._radius &&
@@ -92,15 +91,13 @@ Face.prototype.update = function(){
             face._dial.direction,
             face._angle
         ) +
-        ' translateZ(' + (face._dial._radius) + 'px)';
+        translate('Z', (face._dial._radius) + 'px');
 
     face._lastRadius = face._dial._radius;
     face._lastAngle = face._angle;
 };
 Face.prototype._angle = 0;
 Face.prototype.angle = function(newAngle){
-    var face = this;
-
     if (arguments.length === 0) {
         return this._angle;
     }
@@ -136,8 +133,6 @@ Dial.prototype.constructor = Dial;
 Dial.prototype.direction = 'horizontal';
 Dial.prototype._faceWidth = 1;
 Dial.prototype.faceWidth = function(value){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._faceWidth;
     }
@@ -160,8 +155,6 @@ Dial.prototype.faceWidth = function(value){
 };
 Dial.prototype._radius = 1;
 Dial.prototype.radius = function(value){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._radius;
     }
@@ -225,7 +218,8 @@ Dial.prototype._spin = function(degrees){
 
     this.update();
 
-    var index = (this._items.length + Math.round(this._items.length / 360 * this._angle)) % this._items.length,
+    var valueIndex = (this._items.length + Math.round(this._items.length / 360 * this._angle)) % this._items.length,
+        index = Math.abs(valueIndex - this._items.length) % this._items.length,
         oldValue = this._value;
 
     this._index = index;
@@ -237,8 +231,6 @@ Dial.prototype._spin = function(degrees){
     }
 };
 Dial.prototype.spin = function(degrees, callback){
-    degrees = boundAngle(degrees);
-
     var dial = this;
 
     window.requestAnimationFrame(function(){
@@ -257,10 +249,10 @@ Dial.prototype.update = function(){
     );
 
     this.itemsElement.style[venfix('transform')] =
-        'translateZ(' + -this._radius + 'px) ' +
+        translate('Z', (-this._radius) + 'px') +
         rotateStyle(
             this.direction,
-            isVertical(this.direction)?this._angle:-this._angle
+            vertical ? this._angle:-this._angle
         );
 
     for(var i = 0; i < this._faces.length; i++){
@@ -278,31 +270,42 @@ Dial.prototype.spinTo = function(angle, callback){
     }
     this._spinning = true;
 
-    var dial = this,
-        settleFn = function(){
-            if(dial._held){
-                dial._spinning = false;
-                return;
-            }
-
-            dial.spin((dial._targetAngle - dial._angle) * 0.2, function(){
-                if(Math.abs(dial._targetAngle - dial._angle) > 0.1){
-                    settleFn();
-                }else{
-                    dial._angle = dial._targetAngle;
-                    dial.update();
-                    callback && callback();
-                    dial._spinning = false;
-                }
-            });
+    var settleFn = function(){
+        if(dial._held){
+            dial._spinning = false;
+            return;
         }
+
+        var singleElementAngle = 360 / dial.items().length;
+
+        if(dial._targetAngle === singleElementAngle && dial._angle > 360 - singleElementAngle) {
+            dial._angle = 0;
+        }
+
+        var spinBy = dial._targetAngle === 0 ? 360 - dial._angle : dial._targetAngle - dial._angle;
+
+        if(spinBy > 180){
+            spinBy = spinBy - 360;
+        }
+
+        dial.spin(spinBy * 0.2, function(){
+            if(Math.abs(spinBy) > 0.1){
+                settleFn();
+            }else{
+                dial._angle = dial._targetAngle;
+                dial.update();
+                callback && callback();
+                dial._spinning = false;
+            }
+        });
+    };
 
     settleFn();
 };
 Dial.prototype.settle = function(){
     var dial = this;
 
-    var value = dial._items.length / 360 * dial._angle;
+    var value = dial._items.length / 360 * dial._angle,
         valueIndex = Math.round(value),
         valueAngle = 360 / dial._items.length * valueIndex || 0;
 
@@ -312,6 +315,25 @@ Dial.prototype.settle = function(){
         dial.emit('settle');
         dial.emit('change', dial.value());
     });
+};
+Dial.prototype.index = function(index) {
+    if(arguments.length === 0) {
+        return this._index;
+    }
+
+    index = parseInt(index);
+
+    if(isNaN(index)) {
+        return;
+    }
+
+    this._index = index;
+    this.spinTo(360 - boundAngle(360 / this._items.length * this._index));
+
+    this.emit('change', this._value);
+    this.emit('settle');
+
+    return this;
 };
 Dial.prototype.value = function(value){
     if (arguments.length === 0) {
@@ -324,7 +346,7 @@ Dial.prototype.value = function(value){
 
     this._index = closestIndexFrom(this._items, value, this._index);
     this._value = value;
-    this.spinTo(boundAngle(360 / this._items.length * this._index));
+    this.spinTo(360 - boundAngle(360 / this._items.length * this._index));
 
     this.emit('change', this._value);
     this.emit('settle');
@@ -333,8 +355,6 @@ Dial.prototype.value = function(value){
 };
 Dial.prototype._items = [];
 Dial.prototype.items = function(setItems){
-    var dial = this;
-
     if (arguments.length === 0) {
         return this._items;
     }
@@ -349,7 +369,7 @@ Dial.prototype.items = function(setItems){
         var newFace = new Face(this, this._items[i]);
         newFace.render = this.renderItem;
         this._faces.push(newFace);
-    };
+    }
 
     this.renderFaces();
     this.update();
@@ -384,7 +404,6 @@ Dial.prototype.render = function(){
 
         dial.renderFaces();
         dial.update();
-        dial.settle();
     });
 
     return this;
@@ -394,7 +413,6 @@ Dial.prototype.renderItem = function(item){
 };
 Dial.prototype.renderFaces = function(){
     var dial = this,
-        itemElement,
         sliceAngle = (360 / this._items.length);
 
     for(var i = 0; i < this._faces.length; i++){
@@ -409,6 +427,7 @@ Dial.prototype._drag = function(interaction){
     var dial = this;
 
     if(
+        !this._enabled ||
         !doc.closest(interaction.lastStart.target, dial.element)
     ){
         return;
@@ -418,9 +437,10 @@ Dial.prototype._drag = function(interaction){
 
     this.beginUpdate();
 
+
     var lastMove = interaction.moves[interaction.moves.length-2] || interaction.lastStart,
         scrollDistance = lastMove ? lastMove[vertical?'pageY':'pageX'] - interaction[vertical?'pageY':'pageX'] : 0,
-        spinRatio = scrollDistance / (dial._radius * Math.PI * 2);
+        spinRatio = scrollDistance / (dial._radius * Math.PI * 2),
         degrees = 360 * spinRatio;
 
     dial.velocity = degrees;
@@ -428,16 +448,26 @@ Dial.prototype._drag = function(interaction){
     dial.spin(degrees);
     dial.emit('drag', interaction);
 };
-Dial.prototype.destroy = function(){
+Dial.prototype.destroy = function() {
     var index = dials.indexOf(this);
 
     if(~index){
         dials.splice(index, 1);
     }
 };
+Dial.prototype._enabled = true;
+Dial.prototype.enabled = function(value) {
+    if(!arguments.length){
+        return this._enabled;
+    }
+
+    this._enabled = !!value;
+
+    return this;
+};
 
 module.exports = Dial;
-},{"crel":"/home/kory/dev/dial-roller/node_modules/crel/crel.js","css-translate":"/home/kory/dev/dial-roller/node_modules/css-translate/translate.js","doc-js":"/home/kory/dev/dial-roller/node_modules/doc-js/fluent.js","events":"/usr/lib/node_modules/watchify/node_modules/browserify/node_modules/events/events.js","interact-js":"/home/kory/dev/dial-roller/node_modules/interact-js/interact.js","laidout":"/home/kory/dev/dial-roller/node_modules/laidout/index.js","unitr":"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js","venfix":"/home/kory/dev/dial-roller/node_modules/venfix/venfix.js"}],"/home/kory/dev/dial-roller/node_modules/crel/crel.js":[function(require,module,exports){
+},{"./closestIndexFrom":1,"crel":3,"css-translate":4,"doc-js":6,"events":15,"interact-js":10,"laidout":11,"venfix":13}],3:[function(require,module,exports){
 //Copyright (C) 2012 Kory Nunn
 
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -484,22 +514,36 @@ module.exports = Dial;
     }
 }(this, function () {
     var fn = 'function',
-        isElement = typeof Element === fn ? function (object) {
-            return object instanceof Element;
+        obj = 'object',
+        nodeType = 'nodeType',
+        textContent = 'textContent',
+        setAttribute = 'setAttribute',
+        attrMapString = 'attrMap',
+        isNodeString = 'isNode',
+        isElementString = 'isElement',
+        d = typeof document === obj ? document : {},
+        isType = function(a, type){
+            return typeof a === type;
+        },
+        isNode = typeof Node === fn ? function (object) {
+            return object instanceof Node;
         } :
-        // in IE <= 8 Element is an object, obviously..
+        // in IE <= 8 Node is an object, obviously..
         function(object){
             return object &&
-                (typeof object==="object") &&
-                (object.nodeType===1) &&
-                (typeof object.ownerDocument ==="object");
+                isType(object, obj) &&
+                (nodeType in object) &&
+                isType(object.ownerDocument,obj);
+        },
+        isElement = function (object) {
+            return crel[isNodeString](object) && object[nodeType] === 1;
         },
         isArray = function(a){
             return a instanceof Array;
         },
         appendChild = function(element, child) {
-          if(!isElement(child)){
-              child = document.createTextNode(child);
+          if(!crel[isNodeString](child)){
+              child = d.createTextNode(child);
           }
           element.appendChild(child);
         };
@@ -512,22 +556,22 @@ module.exports = Dial;
             settings = args[1],
             childIndex = 2,
             argumentsLength = args.length,
-            attributeMap = crel.attrMap;
+            attributeMap = crel[attrMapString];
 
-        element = crel.isElement(element) ? element : document.createElement(element);
+        element = crel[isElementString](element) ? element : d.createElement(element);
         // shortcut
         if(argumentsLength === 1){
             return element;
         }
 
-        if(typeof settings !== 'object' || crel.isElement(settings) || isArray(settings)) {
+        if(!isType(settings,obj) || crel[isNodeString](settings) || isArray(settings)) {
             --childIndex;
             settings = null;
         }
 
         // shortcut if there is only one child that is a string
-        if((argumentsLength - childIndex) === 1 && typeof args[childIndex] === 'string' && element.textContent !== undefined){
-            element.textContent = args[childIndex];
+        if((argumentsLength - childIndex) === 1 && isType(args[childIndex], 'string') && element[textContent] !== undefined){
+            element[textContent] = args[childIndex];
         }else{
             for(; childIndex < argumentsLength; ++childIndex){
                 child = args[childIndex];
@@ -548,13 +592,13 @@ module.exports = Dial;
 
         for(var key in settings){
             if(!attributeMap[key]){
-                element.setAttribute(key, settings[key]);
+                element[setAttribute](key, settings[key]);
             }else{
-                var attr = crel.attrMap[key];
+                var attr = attributeMap[key];
                 if(typeof attr === fn){
                     attr(element, settings[key]);
                 }else{
-                    element.setAttribute(attr, settings[key]);
+                    element[setAttribute](attr, settings[key]);
                 }
             }
         }
@@ -563,16 +607,16 @@ module.exports = Dial;
     }
 
     // Used for mapping one kind of attribute to the supported version of that in bad browsers.
-    // String referenced so that compilers maintain the property name.
-    crel['attrMap'] = {};
+    crel[attrMapString] = {};
 
-    // String referenced so that compilers maintain the property name.
-    crel["isElement"] = isElement;
+    crel[isElementString] = isElement;
+
+    crel[isNodeString] = isNode;
 
     return crel;
 }));
 
-},{}],"/home/kory/dev/dial-roller/node_modules/css-translate/translate.js":[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 var unitr = require('unitr'),
     types = {
         '3d': '3d',
@@ -605,7 +649,7 @@ module.exports = function(type, x, y, z){
         args.join(',') +
         ')';
 }
-},{"unitr":"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js"}],"/home/kory/dev/dial-roller/node_modules/doc-js/doc.js":[function(require,module,exports){
+},{"unitr":12}],5:[function(require,module,exports){
 var doc = {
     document: typeof document !== 'undefined' ? document : null,
     setDocument: function(d){
@@ -614,7 +658,7 @@ var doc = {
 };
 
 var arrayProto = [],
-    isList = require('./isList');
+    isList = require('./isList'),
     getTargets = require('./getTargets')(doc.document),
     getTarget = require('./getTarget')(doc.document),
     space = ' ';
@@ -663,7 +707,7 @@ function find(target, query){
     }
 
     return target ? target.querySelectorAll(query) : [];
-};
+}
 
 /**
 
@@ -696,7 +740,7 @@ function findOne(target, query){
     }
 
     return target ? target.querySelector(query) : null;
-};
+}
 
 /**
 
@@ -727,7 +771,7 @@ function closest(target, query){
     }
 
     return target === doc.document && target !== query ? null : target;
-};
+}
 
 /**
 
@@ -752,8 +796,26 @@ function is(target, query){
     if(!target.ownerDocument || typeof query !== 'string'){
         return target === query;
     }
-    return target === query || arrayProto.indexOf.call(find(target.parentNode, query), target) >= 0;
-};
+
+    if(target === query){
+        return true;
+    }
+
+    var parentless = !target.parentNode;
+
+    if(parentless){
+        // Give the element a parent so that .querySelectorAll can be used
+        document.createDocumentFragment().appendChild(target);
+    }
+
+    var result = arrayProto.indexOf.call(find(target.parentNode, query), target) >= 0;
+
+    if(parentless){
+        target.parentNode.removeChild(target);
+    }
+
+    return result;
+}
 
 /**
 
@@ -799,7 +861,7 @@ function addClass(target, classes){
         target.className = currentClasses.join(space);
     }
     return this;
-};
+}
 
 /**
 
@@ -849,7 +911,7 @@ function removeClass(target, classes){
         target.className = currentClasses.join(space);
     }
     return this;
-};
+}
 
 function addEvent(settings){
     var target = getTarget(settings.target);
@@ -947,7 +1009,7 @@ function on(events, target, callback, proxy){
             getTarget(removeCallback.target).removeEventListener(removeCallback.event, removeCallback.callback);
         }
     }
-};
+}
 
 /**
 
@@ -999,7 +1061,7 @@ function off(events, target, callback, proxy){
         }
     }
     return this;
-};
+}
 
 /**
 
@@ -1030,7 +1092,7 @@ function append(target, children){
     }
 
     target.appendChild(children);
-};
+}
 
 /**
 
@@ -1062,7 +1124,7 @@ function prepend(target, children){
     }
 
     target.insertBefore(children, target.firstChild);
-};
+}
 
 /**
 
@@ -1093,8 +1155,44 @@ function isVisible(target){
     }
 
     return target === doc.document;
-};
+}
 
+/**
+
+    ## .indexOfElement
+
+    returns the index of the element within it's parent element.
+
+        //fluent
+        doc(target).indexOfElement();
+
+        //legacy
+        doc.indexOfElement(target);
+
+*/
+
+function indexOfElement(target) {
+    target = getTargets(target);
+    if(!target){
+        return;
+    }
+
+    if(isList(target)){
+        target = target[0];
+    }
+
+    var i = -1;
+
+    var parent = target.parentElement;
+
+    if(!parent){
+        return i;
+    }
+
+    while(parent.children[++i] !== target){}
+
+    return i;
+}
 
 
 /**
@@ -1103,6 +1201,8 @@ function isVisible(target){
 
     call a callback when the document is ready.
 
+    returns -1 if there is no parentElement on the target.
+
         //fluent
         doc().ready(callback);
 
@@ -1110,18 +1210,16 @@ function isVisible(target){
         doc.ready(callback);
 */
 
-function ready(target, callback){
-    if(typeof target === 'function' && !callback){
-        callback = target;
-    }
-    if(doc.document.body){
+function ready(callback){
+    if(doc.document && doc.document.readyState === 'complete'){
         callback();
-    }else{
-        doc.on('load', window, function(){
-            callback();
-        });
+    }else if(window.attachEvent){
+        document.attachEvent("onreadystatechange", callback);
+        window.attachEvent("onLoad",callback);
+    }else if(document.addEventListener){
+        document.addEventListener("DOMContentLoaded",callback,false);
     }
-};
+}
 
 doc.find = find;
 doc.findOne = findOne;
@@ -1135,9 +1233,10 @@ doc.append = append;
 doc.prepend = prepend;
 doc.isVisible = isVisible;
 doc.ready = ready;
+doc.indexOfElement = indexOfElement;
 
 module.exports = doc;
-},{"./getTarget":"/home/kory/dev/dial-roller/node_modules/doc-js/getTarget.js","./getTargets":"/home/kory/dev/dial-roller/node_modules/doc-js/getTargets.js","./isList":"/home/kory/dev/dial-roller/node_modules/doc-js/isList.js"}],"/home/kory/dev/dial-roller/node_modules/doc-js/fluent.js":[function(require,module,exports){
+},{"./getTarget":7,"./getTargets":8,"./isList":9}],6:[function(require,module,exports){
 var doc = require('./doc'),
     isList = require('./isList'),
     getTargets = require('./getTargets')(doc.document),
@@ -1206,6 +1305,11 @@ flocProto.off = function(events, target, callback){
     return this;
 };
 
+flocProto.ready = function(callback){
+    doc.ready(callback);
+    return this;
+};
+
 flocProto.addClass = function(className){
     doc.addClass(this, className);
     return this;
@@ -1217,7 +1321,7 @@ flocProto.removeClass = function(className){
 };
 
 module.exports = floc;
-},{"./doc":"/home/kory/dev/dial-roller/node_modules/doc-js/doc.js","./getTargets":"/home/kory/dev/dial-roller/node_modules/doc-js/getTargets.js","./isList":"/home/kory/dev/dial-roller/node_modules/doc-js/isList.js"}],"/home/kory/dev/dial-roller/node_modules/doc-js/getTarget.js":[function(require,module,exports){
+},{"./doc":5,"./getTargets":8,"./isList":9}],7:[function(require,module,exports){
 var singleId = /^#\w+$/;
 
 module.exports = function(document){
@@ -1232,7 +1336,7 @@ module.exports = function(document){
         return target;
     };
 };
-},{}],"/home/kory/dev/dial-roller/node_modules/doc-js/getTargets.js":[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 
 var singleClass = /^\.\w+$/,
     singleId = /^#\w+$/,
@@ -1258,22 +1362,17 @@ module.exports = function(document){
         return target;
     };
 };
-},{}],"/home/kory/dev/dial-roller/node_modules/doc-js/isList.js":[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 module.exports = function isList(object){
-    return object !== window && (
-        object instanceof Array ||
-        (typeof HTMLCollection !== 'undefined' && object instanceof HTMLCollection) ||
-        (typeof NodeList !== 'undefined' && object instanceof NodeList) ||
-        Array.isArray(object)
-    );
+    return object != null && typeof object === 'object' && 'length' in object && !('nodeType' in object) && object.self != object; // in IE8, window.self is window, but it is not === window, but it is == window......... WTF!?
 }
-
-},{}],"/home/kory/dev/dial-roller/node_modules/interact-js/interact.js":[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var interactions = [],
     minMoveDistance = 5,
     interact,
     maximumMovesToPersist = 1000, // Should be plenty..
-    propertiesToCopy = 'target,pageX,pageY,clientX,clientY,offsetX,offsetY,screenX,screenY,shiftKey,x,y'.split(','); // Stuff that will be on every interaction.
+    propertiesToCopy = 'target,pageX,pageY,clientX,clientY,offsetX,offsetY,screenX,screenY,shiftKey,x,y'.split(','), // Stuff that will be on every interaction.
+    d = typeof document !== 'undefined' ? document : null;
 
 function Interact(){
     this._elements = [];
@@ -1347,11 +1446,11 @@ function getActualTarget() {
 
     // IE is stupid and doesn't support scrollX/Y
     if(scrollX === undefined){
-        scrollX = document.body.scrollLeft;
-        scrollY = document.body.scrollTop;
+        scrollX = d.body.scrollLeft;
+        scrollY = d.body.scrollTop;
     }
 
-    return document.elementFromPoint(this.pageX - window.scrollX, this.pageY - window.scrollY);
+    return d.elementFromPoint(this.pageX - window.scrollX, this.pageY - window.scrollY);
 }
 
 function getMoveDistance(x1,y1,x2,y2){
@@ -1650,13 +1749,13 @@ function cancel(event){
     }
 }
 
-addEvent(document, 'touchstart', start);
-addEvent(document, 'touchmove', drag);
-addEvent(document, 'touchend', end);
-addEvent(document, 'touchcancel', cancel);
+addEvent(d, 'touchstart', start);
+addEvent(d, 'touchmove', drag);
+addEvent(d, 'touchend', end);
+addEvent(d, 'touchcancel', cancel);
 
 var mouseIsDown = false;
-addEvent(document, 'mousedown', function(event){
+addEvent(d, 'mousedown', function(event){
     mouseIsDown = true;
 
     if(!interactions.length){
@@ -1671,7 +1770,7 @@ addEvent(document, 'mousedown', function(event){
 
     getInteraction().start(event);
 });
-addEvent(document, 'mousemove', function(event){
+addEvent(d, 'mousemove', function(event){
     if(!interactions.length){
         new Interaction(event);
     }
@@ -1688,7 +1787,7 @@ addEvent(document, 'mousemove', function(event){
         interaction.move(event);
     }
 });
-addEvent(document, 'mouseup', function(event){
+addEvent(d, 'mouseup', function(event){
     mouseIsDown = false;
 
     var interaction = getInteraction();
@@ -1702,16 +1801,20 @@ addEvent(document, 'mouseup', function(event){
 });
 
 function addEvent(element, type, callback) {
+    if(element == null){
+        return;
+    }
+
     if(element.addEventListener){
         element.addEventListener(type, callback);
     }
-    else if(document.attachEvent){
+    else if(d.attachEvent){
         element.attachEvent("on"+ type, callback);
     }
 }
 
 module.exports = interact;
-},{}],"/home/kory/dev/dial-roller/node_modules/laidout/index.js":[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 function checkElement(element){
     if(!element){
         return false;
@@ -1740,7 +1843,7 @@ module.exports = function laidout(element, callback){
 
     document.addEventListener('DOMNodeInserted', recheckElement);
 };
-},{}],"/home/kory/dev/dial-roller/node_modules/unitr/unitr.js":[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 var parseRegex = /^(-?(?:\d+|\d+\.\d+|\.\d+))([^\.]*?)$/;
 
 function parse(input){
@@ -1782,11 +1885,18 @@ function addUnit(input, unit){
 
 module.exports = addUnit;
 module.exports.parse = parse;
-},{}],"/home/kory/dev/dial-roller/node_modules/venfix/venfix.js":[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var cache = {},
     bodyStyle = {};
 
-window.addEventListener('load', getBodyStyleProperties);
+if(typeof window !== 'undefined'){
+    if(window.document.body){
+        getBodyStyleProperties();
+    }else{
+        window.addEventListener('load', getBodyStyleProperties);
+    }
+}
+
 function getBodyStyleProperties(){
     var shortcuts = {},
         items = document.defaultView.getComputedStyle(document.body);
@@ -1824,23 +1934,27 @@ function venfix(property, target){
         return property;
     }
 
-    var propertyRegex = new RegExp('^-(' + venfix.prefixes.join('|') + ')-' + property + '$', 'i');
+    var propertyRegex = new RegExp('^(-(?:' + venfix.prefixes.join('|') + ')-)' + property + '(?:$|-)', 'i');
 
     for(var i = 0; i < props.length; i++) {
-        if(props[i].match(propertyRegex)){
+        var match = props[i].match(propertyRegex);
+        if(match){
+            var result = match[1] + property;
             if(target === bodyStyle){
-                cache[property] = props[i]
+                cache[property] = result
             }
-            return props[i];
+            return result;
         }
     }
+
+    return property;
 }
 
 // Add extensibility
 venfix.prefixes = ['webkit', 'moz', 'ms', 'o'];
 
 module.exports = venfix;
-},{}],"/home/kory/dev/dial-roller/test/index.js":[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 var DialRoller = require('../'),
     crel = require('crel');
 
@@ -1975,7 +2089,7 @@ window.onload = function(){
         vertDial.value(vertDial.items()[1]);
     },2600);
 };
-},{"../":"/home/kory/dev/dial-roller/index.js","crel":"/home/kory/dev/dial-roller/node_modules/crel/crel.js"}],"/usr/lib/node_modules/watchify/node_modules/browserify/node_modules/events/events.js":[function(require,module,exports){
+},{"../":2,"crel":3}],15:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -2278,4 +2392,4 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}]},{},["/home/kory/dev/dial-roller/test/index.js"]);
+},{}]},{},[14]);
